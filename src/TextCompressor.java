@@ -33,77 +33,126 @@ import java.util.HashMap;
 public class TextCompressor {
 
     private static void compress() {
-        // Read all the input into a string and then break that down into chars
+        // TST stores the dictionary of known sequences and turns string patterns into numeric codes
+        TST dictionary = new TST();
+
+        // Insert all extended ASCII values into the dictionary at the beginning
+        for (int i = 0; i < 256; i++) {
+            dictionary.insert("" + (char) i, i);
+        }
+
+        // Tracks next available code pattern index in TST
+        int nextCode = 257;
+
+        // Maximum amount of codes that can be used
+        int maxCodes = 4096;
+
+        // 12-bit codes per entry
+        int codeWidth = 12;
+
+        // Signals end of file
+        int EOF_Code = 256;
+
+        // Read entire input of file and track the current positon in the file
         String input = BinaryStdIn.readString();
-        Character[] chars = new Character[input.length()];
-        for (int i = 0; i < input.length(); i++) {
-            chars[i] = input.charAt(i);
-        }
+        int position = 0;
 
-        // Count how often each character appears through extended ASCII
-        int[] frequency = new int[256];
-        for (int i = 0; i < chars.length; i++) {
-            frequency[chars[i]]++;
-        }
+        // Process input from start to finish
+        while (position < input.length()) {
+            // build the match manually without skipping over letters
+            String match = "" + input.charAt(position);
 
-        // Find which characters are actually used to narrow down possible characters
-        ArrayList<Character> uniqueChars = new ArrayList<>();
-        for (int i = 0; i < frequency.length; i++) {
-            if (frequency[i] > 0) {
-                uniqueChars.add((char) i);
-            }
-        }
+            // Get the numeric index for this pattern in ASCII
+            int code = dictionary.lookup(match);
 
-        // Sort characters by frequency through a simple bubble sort algorithm
-        // This isn't most efficient but the list is relatively small so it's fine
-        for (int i = 0; i < uniqueChars.size() - 1; i++) {
-            for (int j = 0; j < uniqueChars.size() - i - 1; j++) {
-                char first = uniqueChars.get(j);
-                char second = uniqueChars.get(j + 1);
-                if (frequency[first] < frequency[second]) {
-                    // Swap the second and first chars if the second is more frequent
-                    uniqueChars.set(j, second);
-                    uniqueChars.set(j + 1, first);
+            // Try to extend the match through searching if the longer index is in the TST
+            while (position + match.length() < input.length()) {
+                // Identify the next possible char in the file
+                char nextChar = input.charAt(position + match.length());
+                String longer = match + nextChar;
+                // Then lookup that word
+                int longerCode = dictionary.lookup(longer);
+
+                // If empty then move on
+                // Otherwise update your match and the index of that match in the TST
+                if (longerCode == TST.EMPTY) {
+                    break;
                 }
+
+                match = longer;
+                code = longerCode;
             }
+
+            // Write the code using 8 bits
+            BinaryStdOut.write(code, codeWidth);
+
+
+            // Create the next possible pattern as long as the dictionary isn't full yet
+            if (position + match.length() < input.length() && nextCode < maxCodes) {
+                // Build new pattern with the current word and the first character of next pattern
+                // Add to dictionary with next available code and then increment nextCode
+                String newPattern = match + input.charAt(position + match.length());
+                dictionary.insert(newPattern, nextCode);
+                nextCode++;
+            }
+
+            // Jump past the pattern we just encoded
+            position += match.length();
         }
 
-        // Assign shorter codes to more frequent characters through a hashmap
-        HashMap<Character, Integer> charCode = new HashMap<>();
-        for(int i = 0; i < uniqueChars.size(); i++) {
-            charCode.put(uniqueChars.get(i), i);
-        }
-
-        // Figure out how many bits are needed for the codes
-        int numChars = uniqueChars.size();
-        int bits = 1;
-
-        // Need some way to figure out how many bits we need for codes
-        // Not sure how to do that yet
-
-        // Write how many unique characters there are
-        BinaryStdOut.write(numChars, 8);
-
-        // Then write each character in order of their code
-        for(int i = 0; i < uniqueChars.size(); i++) {
-            BinaryStdOut.write(uniqueChars.get(i), 8);
-        }
-
-        // Write how many bits per code
-        // Again I'm not sure how to do this yet
-        BinaryStdOut.write(bits, 8);
-
-        // Write original length
-        BinaryStdOut.write(chars.length);
-
-
+        // Write out the special code to signal end of file
+        BinaryStdOut.write(EOF_Code, codeWidth);
         BinaryStdOut.close();
     }
 
     private static void expand() {
+        // Array to store dictionary with the code into the string
+        String[] dictionary = new String[4096];
+        int EOF_Code = 256;
 
-        // TODO: Complete the expand() method
+        // Initialize the dictionary with single characters
+        for (int i = 0; i < 256; i++) {
+            dictionary[i] = "" + (char) i;
+        }
+        // Same method as above
+        int nextCode = 257;
+        int codeWidth = 12;
+        int maxCodes = 4096;
 
+        // Read first code from the compressed file
+        // Look up what string it represents
+        // Output that string
+        int currentCode = BinaryStdIn.readInt(codeWidth);
+        String previous = dictionary[currentCode];
+        BinaryStdOut.write(previous);
+        currentCode = BinaryStdIn.readInt(codeWidth);
+
+        // Read next code and repeat process above until you hit the EOF marker
+        while (currentCode != EOF_Code) {
+            String currentString;
+
+            // To address special case: store the current code as the previous pattern and the first char of the previous one
+            if (currentCode == nextCode) {
+                currentString = previous + previous.charAt(0);
+            } else {
+                // Otherwise simply look up the string for this code
+                currentString = dictionary[currentCode];
+            }
+
+            // Output decoded string
+            BinaryStdOut.write(currentString);
+
+            // Now build the pattern by the previous word and the first string of the current word
+            if (nextCode < maxCodes) {
+                dictionary[nextCode] = previous + currentString.charAt(0);
+                // Increment for the next pattern
+                nextCode++;
+            }
+            // Current becomes the previous for the next loop
+            previous = currentString;
+            // Read next code from compressed file
+            currentCode = BinaryStdIn.readInt(codeWidth);
+        }
         BinaryStdOut.close();
     }
 
