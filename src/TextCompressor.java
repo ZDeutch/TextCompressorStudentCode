@@ -37,21 +37,21 @@ public class TextCompressor {
         TST dictionary = new TST();
 
         // Insert all extended ASCII values into the dictionary at the beginning
-        for (int i = 0; i < 256; i++) {
+        for (int i = 0; i < 128; i++) {
             dictionary.insert("" + (char) i, i);
         }
 
         // Tracks next available code pattern index in TST
-        int nextCode = 257;
+        int nextCode = 129;
 
         // Maximum amount of codes that can be used
-        int maxCodes = 4096;
+        int maxCodes = 256;
 
         // 12-bit codes per entry
-        int codeWidth = 12;
+        int codeWidth = 8;
 
         // Signals end of file
-        int EOF_Code = 256;
+        int EOF_Code = 128;
 
         // Read entire input of file and track the current positon in the file
         String input = BinaryStdIn.readString();
@@ -107,17 +107,17 @@ public class TextCompressor {
 
     private static void expand() {
         // Array to store dictionary with the code into the string
-        String[] dictionary = new String[4096];
-        int EOF_Code = 256;
+        String[] dictionary = new String[256];
+        int EOF_Code = 128;
 
         // Initialize the dictionary with single characters
         for (int i = 0; i < 256; i++) {
             dictionary[i] = "" + (char) i;
         }
         // Same method as above
-        int nextCode = 257;
-        int codeWidth = 12;
-        int maxCodes = 4096;
+        int nextCode = 129;
+        int codeWidth = 8;
+        int maxCodes = 256;
 
         // Read first code from the compressed file
         // Look up what string it represents
